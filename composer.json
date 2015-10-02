@@ -1,0 +1,16 @@
+{
+    "name": "kiriaze/simple-stripe-woocommerce",
+    "description": "A stripe payment gateway extension for Woocommerce",
+    "type": "wordpress-plugin",
+    "homepage": "http://getsimple.io",
+    "require": {
+        "stripe/stripe-php": "^3.4"
+    },
+    "authors": [
+        {
+            "name": "Constantine Kiriaze",
+            "email": "ckiriaze@gmail.com",
+            "homepage": "http://getsimple.io"
+        }
+    ]
+}
