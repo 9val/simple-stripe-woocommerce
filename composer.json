@@ -1,5 +1,5 @@
 {
-    "name": "kiriaze/simple-stripe-woocommerce",
+    "name": "simple/simple-stripe-woocommerce",
     "description": "A stripe payment gateway extension for Woocommerce",
     "type": "wordpress-plugin",
     "homepage": "http://getsimple.io",
