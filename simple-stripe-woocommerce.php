@@ -12,8 +12,7 @@
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 function stripe_init() {
 
-	if ( !class_exists('Stripe') ) {
-		// include( plugin_dir_path( __FILE__ ) . "lib/Stripe.php" );
+	if ( !class_exists('\Stripe\Stripe') ) {
 		require_once( plugin_dir_path( __FILE__ ) . '/vendor/autoload.php');
 	}
 
@@ -52,15 +51,15 @@ function stripe_init() {
 				$this->stripe_secret_key           = $this->stripe_sandbox ? $this->stripe_test_secret_key : $this->stripe_live_secret_key;
 
 				$this->stripe_authorize_only       = $this->get_option( 'stripe_authorize_only' );
-				// $this->stripe_storecurrency        = $this->get_option( 'stripe_storecurrency' );
-				$this->stripe_storecurrency        = 'USD'; // temp force to US dollars only
+				$this->stripe_storecurrency        = $this->get_option( 'stripe_storecurrency' );
 				$this->stripe_cardtypes            = $this->get_option( 'stripe_cardtypes');
 				$this->stripe_enable_for_methods   = $this->get_option( 'stripe_enable_for_methods', array() );
 
-				// $this->stripe_zerodecimalcurrency  = array("BIF","CLP","DJF","GNF","JPY","KMF","KRW","MGA","PYG","RWF","VND","VUV","XAF","XOF","XPF");
+				$this->stripe_zerodecimalcurrency  = array("BIF","CLP","DJF","GNF","JPY","KMF","KRW","MGA","PYG","RWF","VND","VUV","XAF","XOF","XPF");
 
+				// if set to authorize only, charges will only be capturable through stripes dashboard
 				if ( !defined("STRIPE_TRANSACTION_MODE") ) {
-					define("STRIPE_TRANSACTION_MODE"  , ( $this->stripe_authorize_only == 'yes'? false : true ));
+					define("STRIPE_TRANSACTION_MODE"  , ( $this->stripe_authorize_only == 'yes' ? false : true ));
 				}
 
 				// init stripe api
@@ -145,17 +144,16 @@ function stripe_init() {
 						'placeholder' => 'Stripe Live Publishable Key'
 					),
 
-					// 'stripe_storecurrency'    => array(
-					// 	'title'        => __('Fund Receiving Currency'),
-					// 	'type'     	   => 'select',
-					// 	'class'        => 'select',
-					// 	'css'          => 'width: 350px;',
-					// 	'desc_tip'     => __( 'Select the currency in which you like to receive payment the currency that has (*) is unsupported on  American Express Cards.This is independent of store base currency so please update your cart price accordingly.', 'woocommerce' ),
-					// 	'options'      => array( 'USD'=>' United States Dollar','AED'=>'United Arab Emirates Dirham','AFN'=>' Afghan Afghani*','ALL'=>' Albanian Lek','AMD'=>' Armenian Dram','ANG'=>' Netherlands Antillean Gulden','AOA'=>' Angolan Kwanza*','ARS'=>' Argentine Peso*','AUD'=>' Australian Dollar','AWG'=>' Aruban Florin','AZN'=>' Azerbaijani Manat','BAM'=>' Bosnia & Herzegovina Convertible Mark','BBD'=>' Barbadian Dollar','BDT'=>' Bangladeshi Taka','BGN'=>' Bulgarian Lev','BIF'=>' Burundian Franc','BMD'=>' Bermudian Dollar','BND'=>' Brunei Dollar','BOB'=>' Bolivian Boliviano*','BRL'=>' Brazilian Real*','BSD'=>' Bahamian Dollar','BWP'=>' Botswana Pula','BZD'=>' Belize Dollar','CAD'=>' Canadian Dollar','CDF'=>' Congolese Franc','CHF'=>' Swiss Franc','CLP'=>' Chilean Peso*','CNY'=>' Chinese Renminbi Yuan','COP'=>' Colombian Peso*','CRC'=>' Costa Rican Colón*','CVE'=>' Cape Verdean Escudo*','CZK'=>' Czech Koruna*','DJF'=>' Djiboutian Franc*','DKK'=>' Danish Krone','DOP'=>' Dominican Peso','DZD'=>' Algerian Dinar','EEK'=>' Estonian Kroon*','EGP'=>' Egyptian Pound','ETB'=>' Ethiopian Birr','EUR'=>' Euro','FJD'=>' Fijian Dollar','FKP'=>' Falkland Islands Pound*','GBP'=>' British Pound','GEL'=>' Georgian Lari','GIP'=>' Gibraltar Pound','GMD'=>' Gambian Dalasi','GNF'=>' Guinean Franc*','GTQ'=>' Guatemalan Quetzal*','GYD'=>' Guyanese Dollar','HKD'=>' Hong Kong Dollar','HNL'=>' Honduran Lempira*','HRK'=>' Croatian Kuna','HTG'=>' Haitian Gourde','HUF'=>' Hungarian Forint*','IDR'=>' Indonesian Rupiah','ILS'=>' Israeli New Sheqel','INR'=>' Indian Rupee*','ISK'=>' Icelandic Króna','JMD'=>' Jamaican Dollar','JPY'=>' Japanese Yen','KES'=>' Kenyan Shilling','KGS'=>' Kyrgyzstani Som','KHR'=>' Cambodian Riel','KMF'=>' Comorian Franc','KRW'=>' South Korean Won','KYD'=>' Cayman Islands Dollar','KZT'=>' Kazakhstani Tenge','LAK'=>' Lao Kip*','LBP'=>' Lebanese Pound','LKR'=>' Sri Lankan Rupee','LRD'=>' Liberian Dollar','LSL'=>' Lesotho Loti','LTL'=>' Lithuanian Litas','LVL'=>' Latvian Lats','MAD'=>' Moroccan Dirham','MDL'=>' Moldovan Leu','MGA'=>' Malagasy Ariary','MKD'=>' Macedonian Denar','MNT'=>' Mongolian Tögrög','MOP'=>' Macanese Pataca','MRO'=>' Mauritanian Ouguiya','MUR'=>' Mauritian Rupee*','MVR'=>' Maldivian Rufiyaa','MWK'=>' Malawian Kwacha','MXN'=>' Mexican Peso*','MYR'=>' Malaysian Ringgit','MZN'=>' Mozambican Metical','NAD'=>' Namibian Dollar','NGN'=>' Nigerian Naira','NIO'=>' Nicaraguan Córdoba*','NOK'=>' Norwegian Krone','NPR'=>' Nepalese Rupee','NZD'=>' New Zealand Dollar','PAB'=>' Panamanian Balboa*','PEN'=>' Peruvian Nuevo Sol*','PGK'=>' Papua New Guinean Kina','PHP'=>' Philippine Peso','PKR'=>' Pakistani Rupee','PLN'=>' Polish Złoty','PYG'=>' Paraguayan Guaraní*','QAR'=>' Qatari Riyal','RON'=>' Romanian Leu','RSD'=>' Serbian Dinar','RUB'=>' Russian Ruble','RWF'=>' Rwandan Franc','SAR'=>' Saudi Riyal','SBD'=>' Solomon Islands Dollar','SCR'=>' Seychellois Rupee','SEK'=>' Swedish Krona','SGD'=>' Singapore Dollar','SHP'=>' Saint Helenian Pound*','SLL'=>' Sierra Leonean Leone','SOS'=>' Somali Shilling','SRD'=>' Surinamese Dollar*','STD'=>' São Tomé and Príncipe Dobra','SVC'=>' Salvadoran Colón*','SZL'=>' Swazi Lilangeni','THB'=>' Thai Baht','TJS'=>' Tajikistani Somoni','TOP'=>' Tongan Paʻanga','TRY'=>' Turkish Lira','TTD'=>' Trinidad and Tobago Dollar','TWD'=>' New Taiwan Dollar','TZS'=>' Tanzanian Shilling','UAH'=>' Ukrainian Hryvnia','UGX'=>' Ugandan Shilling','UYU'=>' Uruguayan Peso*','UZS'=>' Uzbekistani Som','VND'=>' Vietnamese Đồng','VUV'=>' Vanuatu Vatu','WST'=>' Samoan Tala','XAF'=>' Central African Cfa Franc','XCD'=>' East Caribbean Dollar','XOF'=>' West African Cfa Franc*','XPF'=>' Cfp Franc*','YER'=>' Yemeni Rial','ZAR'=>' South African Rand','ZMW'=>' Zambian Kwacha'),
-					// 	'description'  => "<span style='color:red;'>Select the currency in which you like to receive payment the currency that has (*) is unsupported on  American Express Cards.This is independent of store base currency so please update your cart price accordingly.</span>",
-
-					// 	'default' => 'USD',
-					// ),
+					'stripe_storecurrency'    => array(
+						'title'        => __('Fund Receiving Currency'),
+						'type'     	   => 'select',
+						'class'        => 'select',
+						'css'          => 'width: 350px;',
+						'desc_tip'     => __( 'Select the currency in which you like to receive payment the currency that has (*) is unsupported on  American Express Cards.This is independent of store base currency so please update your cart price accordingly.', 'woocommerce' ),
+						'options'      => array( 'USD'=>' United States Dollar','AED'=>'United Arab Emirates Dirham','AFN'=>' Afghan Afghani*','ALL'=>' Albanian Lek','AMD'=>' Armenian Dram','ANG'=>' Netherlands Antillean Gulden','AOA'=>' Angolan Kwanza*','ARS'=>' Argentine Peso*','AUD'=>' Australian Dollar','AWG'=>' Aruban Florin','AZN'=>' Azerbaijani Manat','BAM'=>' Bosnia & Herzegovina Convertible Mark','BBD'=>' Barbadian Dollar','BDT'=>' Bangladeshi Taka','BGN'=>' Bulgarian Lev','BIF'=>' Burundian Franc','BMD'=>' Bermudian Dollar','BND'=>' Brunei Dollar','BOB'=>' Bolivian Boliviano*','BRL'=>' Brazilian Real*','BSD'=>' Bahamian Dollar','BWP'=>' Botswana Pula','BZD'=>' Belize Dollar','CAD'=>' Canadian Dollar','CDF'=>' Congolese Franc','CHF'=>' Swiss Franc','CLP'=>' Chilean Peso*','CNY'=>' Chinese Renminbi Yuan','COP'=>' Colombian Peso*','CRC'=>' Costa Rican Colón*','CVE'=>' Cape Verdean Escudo*','CZK'=>' Czech Koruna*','DJF'=>' Djiboutian Franc*','DKK'=>' Danish Krone','DOP'=>' Dominican Peso','DZD'=>' Algerian Dinar','EEK'=>' Estonian Kroon*','EGP'=>' Egyptian Pound','ETB'=>' Ethiopian Birr','EUR'=>' Euro','FJD'=>' Fijian Dollar','FKP'=>' Falkland Islands Pound*','GBP'=>' British Pound','GEL'=>' Georgian Lari','GIP'=>' Gibraltar Pound','GMD'=>' Gambian Dalasi','GNF'=>' Guinean Franc*','GTQ'=>' Guatemalan Quetzal*','GYD'=>' Guyanese Dollar','HKD'=>' Hong Kong Dollar','HNL'=>' Honduran Lempira*','HRK'=>' Croatian Kuna','HTG'=>' Haitian Gourde','HUF'=>' Hungarian Forint*','IDR'=>' Indonesian Rupiah','ILS'=>' Israeli New Sheqel','INR'=>' Indian Rupee*','ISK'=>' Icelandic Króna','JMD'=>' Jamaican Dollar','JPY'=>' Japanese Yen','KES'=>' Kenyan Shilling','KGS'=>' Kyrgyzstani Som','KHR'=>' Cambodian Riel','KMF'=>' Comorian Franc','KRW'=>' South Korean Won','KYD'=>' Cayman Islands Dollar','KZT'=>' Kazakhstani Tenge','LAK'=>' Lao Kip*','LBP'=>' Lebanese Pound','LKR'=>' Sri Lankan Rupee','LRD'=>' Liberian Dollar','LSL'=>' Lesotho Loti','LTL'=>' Lithuanian Litas','LVL'=>' Latvian Lats','MAD'=>' Moroccan Dirham','MDL'=>' Moldovan Leu','MGA'=>' Malagasy Ariary','MKD'=>' Macedonian Denar','MNT'=>' Mongolian Tögrög','MOP'=>' Macanese Pataca','MRO'=>' Mauritanian Ouguiya','MUR'=>' Mauritian Rupee*','MVR'=>' Maldivian Rufiyaa','MWK'=>' Malawian Kwacha','MXN'=>' Mexican Peso*','MYR'=>' Malaysian Ringgit','MZN'=>' Mozambican Metical','NAD'=>' Namibian Dollar','NGN'=>' Nigerian Naira','NIO'=>' Nicaraguan Córdoba*','NOK'=>' Norwegian Krone','NPR'=>' Nepalese Rupee','NZD'=>' New Zealand Dollar','PAB'=>' Panamanian Balboa*','PEN'=>' Peruvian Nuevo Sol*','PGK'=>' Papua New Guinean Kina','PHP'=>' Philippine Peso','PKR'=>' Pakistani Rupee','PLN'=>' Polish Złoty','PYG'=>' Paraguayan Guaraní*','QAR'=>' Qatari Riyal','RON'=>' Romanian Leu','RSD'=>' Serbian Dinar','RUB'=>' Russian Ruble','RWF'=>' Rwandan Franc','SAR'=>' Saudi Riyal','SBD'=>' Solomon Islands Dollar','SCR'=>' Seychellois Rupee','SEK'=>' Swedish Krona','SGD'=>' Singapore Dollar','SHP'=>' Saint Helenian Pound*','SLL'=>' Sierra Leonean Leone','SOS'=>' Somali Shilling','SRD'=>' Surinamese Dollar*','STD'=>' São Tomé and Príncipe Dobra','SVC'=>' Salvadoran Colón*','SZL'=>' Swazi Lilangeni','THB'=>' Thai Baht','TJS'=>' Tajikistani Somoni','TOP'=>' Tongan Paʻanga','TRY'=>' Turkish Lira','TTD'=>' Trinidad and Tobago Dollar','TWD'=>' New Taiwan Dollar','TZS'=>' Tanzanian Shilling','UAH'=>' Ukrainian Hryvnia','UGX'=>' Ugandan Shilling','UYU'=>' Uruguayan Peso*','UZS'=>' Uzbekistani Som','VND'=>' Vietnamese Đồng','VUV'=>' Vanuatu Vatu','WST'=>' Samoan Tala','XAF'=>' Central African Cfa Franc','XCD'=>' East Caribbean Dollar','XOF'=>' West African Cfa Franc*','XPF'=>' Cfp Franc*','YER'=>' Yemeni Rial','ZAR'=>' South African Rand','ZMW'=>' Zambian Kwacha'),
+						'description'  => "<span style='color:red;'>Select the currency in which you like to receive payment the currency that has (*) is unsupported on  American Express Cards.This is independent of store base currency so please update your cart price accordingly.</span>",
+						'default' => 'USD',
+					),
 
 					'stripe_sandbox' => array(
 						'title'       => __( 'Stripe Sandbox', 'woocommerce' ),
@@ -231,7 +229,6 @@ function stripe_init() {
 				}
 
 			} // end get_card_type()
-
 
 			// Function to check IP
 			function get_client_ip() {
@@ -309,7 +306,9 @@ function stripe_init() {
 
 			// Get icon
 			public function get_icon() {
+
 				$icon = '';
+
 				if ( is_array($this->stripe_cardtypes) ) {
 					foreach ( $this->stripe_cardtypes as $card_type ) {
 						if ( $url = $this->stripe_get_active_card_logo_url( $card_type ) ) {
@@ -337,13 +336,16 @@ function stripe_init() {
 				$wc_order 	    = wc_get_order( $order_id );
 				$grand_total 	= $wc_order->order_total;
 
-				// if ( in_array( $this->stripe_storecurrency, $this->stripe_zerodecimalcurrency ) ) {
-				// 	$amount 	     = number_format( $grand_total, 0, ".", "");
-				// } else {
-					$amount 	     = $grand_total * 100 ;
-				// }
+				if ( in_array( $this->stripe_storecurrency, $this->stripe_zerodecimalcurrency ) ) {
+					$amount = number_format( $grand_total, 0, ".", "");
+				} else {
+					$amount = $grand_total * 100;
+				}
 
 				$cardtype = $this->get_card_type(sanitize_text_field( str_replace(' ', '', $_POST['stripe-card-number']) ));
+
+				$current_user = wp_get_current_user();
+				$customerID   = get_post_meta( $current_user->ID, 'customer_id', true );
 
 				if ( !in_array( $cardtype, $this->stripe_cardtypes ) ) {
 					wc_add_notice('Merchant does not support accepting in '. $cardtype,  $notice_type = 'error' );
@@ -365,7 +367,7 @@ function stripe_init() {
 					}
 
 					// create token for customer/buyer credit card
-					$token_id = \Stripe\Token::create(array(
+					$token = \Stripe\Token::create(array(
 						"card" => array(
 							'number' 	     	=> sanitize_text_field( str_replace(' ', '', $_POST['stripe-card-number']) ),
 							'cvc' 				=> sanitize_text_field( $_POST['stripe-card-cvc'] ),
@@ -381,66 +383,41 @@ function stripe_init() {
 						)
 					));
 
-					$charge = \Stripe\Charge::create(array(
-						'amount' 	     		=> $amount,
-						'currency' 				=> $this->stripe_storecurrency,
-						'card'					=> $token_id->id,
-						'capture'				=> STRIPE_TRANSACTION_MODE,
-						'statement_descriptor'  => 'Order#' . $wc_order->get_order_number(),
-						'metadata' 				=> array(
-							'Order #' 	  		=> $wc_order->get_order_number(),
-							'Total Tax'      	=> $wc_order->get_total_tax(),
-							'Total Shipping' 	=> $wc_order->get_total_shipping(),
-							'Customer IP'	  	=> $this->get_client_ip(),
-							'WP customer #'  	=> $wc_order->user_id,
-							'Billing Email'  	=> $wc_order->billing_email,
-						),
-						'receipt_email'         => $wc_order->billing_email,
-						'description'  			=> get_bloginfo('blogname') . ' Order #' . $wc_order->get_order_number(),
-						'shipping' 		    	=> array(
-							'address' => array(
-								'line1'			=> $wc_order->shipping_address_1,
-								'line2'			=> $wc_order->shipping_address_2,
-								'city'			=> $wc_order->shipping_city,
-								'state'			=> $wc_order->shipping_state,
-								'country'		=> $wc_order->shipping_country,
-								'postal_code'	=> $wc_order->shipping_postcode
-							),
-							'name' => $wc_order->shipping_first_name . ' ' . $wc_order->shipping_last_name,
-							'phone'=> $wc_order->billing_phone
-						)
-					));
+					// check if user already has a customer ID
+					// if they dont, create customer
+					if ( empty( $customerID ) ) {
+						// Create a Customer
+						$customer = \Stripe\Customer::create(array(
+							'email'       => $wc_order->billing_email,
+							'source'      => $token,
+							'description' => $current_user->first_name . ' ' . $current_user->last_name
+							// username: $current_user->user_login
+						));
+						// save customer_id for current user meta
+						update_post_meta( $current_user->ID, 'customer_id', $customer->id );
+					}
 
 					// if card valid, and if charge paid, add note of payment completion, empty cart, and redirect to order summary - else error notice
-					if ( $token_id->id != '' ) {
-						if ( $charge->paid == true ) {
+					if ( $token != '' ) {
 
-							$epoch     = $charge->created;
-							$dt        = new DateTime("@$epoch");
-							$timestamp = $dt->format('Y-m-d H:i:s e');
-							$chargeid  = $charge->id;
+						// We handle the charge outside the payment gateway in order for charges to happen when we want them to, but we must fake payment_complete passing in the transaction id in order for woocommerce to move along
 
-							$wc_order->add_order_note(__( 'Stripe payment completed at-'. $timestamp .'-with Charge ID='. $chargeid ,'woocommerce'));
+						// when payment is complete, this function is called payment_complete()
+						// Most of the time this should mark an order as 'processing' so that admin can process/post the items
+						// If the cart contains only downloadable items then the order is 'completed' since the admin needs to take no action
+						// Stock levels are reduced at this point
+						// Sales are also recorded for products
+						// Finally, record the date of payment
+						$wc_order->payment_complete($customerID); // originally set to $chargeid
+						WC()->cart->empty_cart();
 
-							// when payment is complete, this function is called payment_complete()
-							// Most of the time this should mark an order as 'processing' so that admin can process/post the items
-							// If the cart contains only downloadable items then the order is 'completed' since the admin needs to take no action
-							// Stock levels are reduced at this point
-							// Sales are also recorded for products
-							// Finally, record the date of payment
-							$wc_order->payment_complete($chargeid);
-							WC()->cart->empty_cart();
+						return array (
+							'result'   => 'success',
+							'redirect' => $this->get_return_url( $wc_order )
+						);
 
-							return array (
-								'result'   => 'success',
-								'redirect' => $this->get_return_url( $wc_order )
-							);
-
-						} else {
-							$wc_order->add_order_note( __( 'Stripe payment failed.'. $error, 'woocommerce' ) );
-							wc_add_notice($error, $notice_type = 'error' );
-						}
 					}
+
 				} // end try
 
 				catch ( Exception $e ) {
@@ -455,8 +432,7 @@ function stripe_init() {
 
 			} // end of function process_payment()
 
-
-			/*process refund function*/
+			// process refund function
 			public function process_refund( $order_id, $amount = NULL, $reason = '' ) {
 
 				if ( $amount > 0 ) {
@@ -499,7 +475,88 @@ function stripe_init() {
 
 	} // end of if class exist WC_Gateway
 
-} //
+
+	add_action('woocommerce_order_status_completed',  'simple_stripe_order_status_completed' );
+	function simple_stripe_order_status_completed( $order_id = null ) {
+		
+		global $woocommerce;
+		global $error;
+		$wc_order = new WC_Order( $order_id );
+		
+		$options = get_option('woocommerce_stripe_settings', array());
+		$data    = get_post_meta( $order_id );
+		$tid     = $data['_transaction_id'][0];
+		$total   = $data['_order_total'][0] * 100;
+		$authcap = $options['stripe_authorize_only'] == 'yes' ? false : true;
+		$s_key   = $options['stripe_sandbox'][0] ? $options['stripe_test_secret_key'] : $options['stripe_live_secret_key'];
+		$params  = array();
+		
+		// if authorize and capture enabled ( default ), capture charges once order is completed
+		\Stripe\Stripe::setApiKey($s_key);
+		try {
+
+			$charge = \Stripe\Charge::create(array(
+				'amount' 	     		=> $total,
+				'currency' 				=> 'USD', // $option['stripe_storecurrency'][0]
+				'customer'				=> $tid, // transaction id is same as customer id meta
+				'capture'				=> $authcap,
+				'statement_descriptor'  => 'Order#' . $wc_order->get_order_number(),
+				'metadata' 				=> array(
+					'Order #' 	  		=> $wc_order->get_order_number(),
+					'Total Tax'      	=> $wc_order->get_total_tax(),
+					'Total Shipping' 	=> $wc_order->get_total_shipping(),
+					'WP customer #'  	=> $wc_order->user_id,
+					'Billing Email'  	=> $wc_order->billing_email,
+				),
+				'receipt_email'         => $wc_order->billing_email,
+				'description'  			=> get_bloginfo('blogname') . ' Order #' . $wc_order->get_order_number(),
+				'shipping' 		    	=> array(
+					'address' => array(
+						'line1'			=> $wc_order->shipping_address_1,
+						'line2'			=> $wc_order->shipping_address_2,
+						'city'			=> $wc_order->shipping_city,
+						'state'			=> $wc_order->shipping_state,
+						'country'		=> $wc_order->shipping_country,
+						'postal_code'	=> $wc_order->shipping_postcode
+					),
+					'name' => $wc_order->shipping_first_name . ' ' . $wc_order->shipping_last_name,
+					'phone'=> $wc_order->billing_phone
+				)
+			));
+
+			if ( $charge->paid == true ) {
+
+				$epoch     = $charge->created;
+				$dt        = new DateTime("@$epoch");
+				$timestamp = $dt->format('Y-m-d H:i:s e');
+				$chargeid  = $charge->id;
+
+				$wc_order->add_order_note(__( 'Stripe payment completed at-'. $timestamp .'-with Charge ID='. $chargeid ,'woocommerce'));
+
+			} else {
+				$wc_order->add_order_note( __( 'Stripe payment failed.'. $error, 'woocommerce' ) );
+				wc_add_notice($error, $notice_type = 'error' );
+			}
+
+		}
+		catch( \Stripe\Error $e ) {
+			// There was an error
+			$body = $e->getJsonBody();
+			$err  = $body['error'];
+		
+			if ( $this->logger )
+			$this->logger->add('striper', 'Stripe Error:' . $err['message']);
+			
+			wc_add_notice(__('Payment error:', 'striper') . $err['message'], 'error');
+			
+			return null;
+		}
+		return true;
+	}
+
+
+} // stripe_init
+
 
 // Activation hook
 add_action( 'plugins_loaded', 'stripe_init' );

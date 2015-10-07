@@ -1,10 +1,10 @@
 {
     "_readme": [
         "This file locks the dependencies of your project to a known state",
-        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
+        "Read more about it at http://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "0c5e33f3a372d95b8ab0f83b73258b67",
+    "hash": "d5d24b1f224b861e693da0d06552c2a9",
     "packages": [
         {
             "name": "stripe/stripe-php",
