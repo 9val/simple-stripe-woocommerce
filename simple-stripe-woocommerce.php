@@ -400,6 +400,8 @@ function stripe_init() {
 					// if card valid, and if charge paid, add note of payment completion, empty cart, and redirect to order summary - else error notice
 					if ( $token != '' ) {
 
+						// add check here if card entered is different than whats tied to the customer, and if it is - add it or replace current card? then update customer on stripe with new card(s)
+
 						// We handle the charge outside the payment gateway in order for charges to happen when we want them to, but we must fake payment_complete passing in the transaction id in order for woocommerce to move along
 
 						// when payment is complete, this function is called payment_complete()
@@ -474,6 +476,19 @@ function stripe_init() {
 		} // end of class WC_Stripe_Gateway
 
 	} // end of if class exist WC_Gateway
+
+
+
+
+// \Stripe\Stripe::setApiKey("sk_test_2DcoV11I0PQl4ygpFUuuQOMa");
+// // $cu = \Stripe\Customer::retrieve("cus_74ivWhDdtvd0N5");
+// // $cu->description = "test update desc";
+// // $cu->save();
+
+// $cu = \Stripe\Customer::retrieve("cus_74ivWhDdtvd0N5");
+// $card = $cu->sources->retrieve("card_16qZTZDSe6V7KL4aKPyxVbOf");
+// $card->name = "Constantine Kiriaze";
+// $card->save();
 
 
 	add_action('woocommerce_order_status_completed',  'simple_stripe_order_status_completed' );
