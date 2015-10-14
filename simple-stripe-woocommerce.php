@@ -57,6 +57,11 @@ function stripe_init() {
 
 				$this->stripe_zerodecimalcurrency  = array("BIF","CLP","DJF","GNF","JPY","KMF","KRW","MGA","PYG","RWF","VND","VUV","XAF","XOF","XPF");
 
+				// if enable guest checkout is true, set $this->stripe_create_customer to false
+				// in other words, dont allow creation of stripe customer if guest checkout is enabled since we cant attach the stripe customer id meta to an unregistered wordpress user
+				$woocommerce_enable_guest_checkout = get_option('woocommerce_enable_guest_checkout') == 'yes' ? true : false;
+				$this->stripe_create_customer      = !$woocommerce_enable_guest_checkout && $this->get_option('stripe_create_customer') == 'yes' ? true : false;
+
 				// if set to authorize only, charges will only be capturable through stripes dashboard
 				if ( !defined("STRIPE_TRANSACTION_MODE") ) {
 					define("STRIPE_TRANSACTION_MODE"  , ( $this->stripe_authorize_only == 'yes' ? false : true ));
@@ -202,6 +207,15 @@ function stripe_init() {
 						'custom_attributes' => array(
 							'data-placeholder' => __( 'Select shipping methods', 'woocommerce' )
 						)
+					),
+
+					'stripe_create_customer' => array(
+						'title'             => __( 'Create Customer', 'woocommerce' ),
+						'type'              => 'checkbox',
+						'label'             => __( 'Enable creation of stripe customer at checkout ( This allows for charging customers at a later time, and for filtering the status of orders before payment gets proccessed. Requires that Enable guest checkout option be disabled.)', 'woocommerce' ),
+						'description'       => __( 'If checked will create a stripe customer upon checkout.', 'woocommerce' ),
+						'desc_tip'          => true,
+						'default'           => 'no'
 					)
 
 				);
@@ -332,6 +346,7 @@ function stripe_init() {
 
 				global $error;
 				global $woocommerce;
+				global $ss_wc_process; // for add_filter on process_payment call
 
 				$wc_order 	    = wc_get_order( $order_id );
 				$grand_total 	= $wc_order->order_total;
@@ -383,34 +398,104 @@ function stripe_init() {
 						)
 					));
 
-					// check if user already has a customer ID
-					// if they dont, create customer
-					if ( empty( $customerID ) ) {
-						// Create a Customer
-						$customer = \Stripe\Customer::create(array(
-							'email'       => $wc_order->billing_email,
-							'source'      => $token,
-							'description' => $current_user->first_name . ' ' . $current_user->last_name
-							// username: $current_user->user_login
+
+					// if create customer option is true, then create customer if no $customerID has been set - else, charge the card now
+					if ( $this->stripe_create_customer ) {
+
+						// check if user already has a customer ID
+						// if they dont, create customer
+						if ( empty( $customerID ) ) {
+							
+							// Create a Customer
+							$customer = \Stripe\Customer::create(array(
+								'email'       => $wc_order->billing_email,
+								'source'      => $token,
+								'description' => $current_user->first_name . ' ' . $current_user->last_name
+							));
+							
+							// save customer_id for current user meta
+							update_post_meta( $current_user->ID, 'customer_id', $customer->id );
+
+							// set fingerprint of token/card
+							update_post_meta( $current_user->ID, 'fingerprint', $token->card->fingerprint );
+
+						} else {
+						
+							// add check here if card entered is different than whats tied to the customer, and if it is - add it or replace current card? then update customer on stripe with new card(s)
+
+							// \Stripe\Stripe::setApiKey("sk_test_2DcoV11I0PQl4ygpFUuuQOMa");
+							// $customer = \Stripe\Customer::retrieve("cus_79WdM0loJvSuyF");
+							// $card = $customer->sources->retrieve($customer->default_source);
+							// $token = \Stripe\Token::retrieve("tok_16vDXxDSe6V7KL4aZQuvqR8n");
+							// sp($token->card->fingerprint);
+							// sp($card->fingerprint);
+							// sp($card);
+
+							// set fingerprint post meta on user from card/token
+							if ( $token->card->fingerprint != get_post_meta( $current_user->ID, 'fingerprint', true ) ) {
+								$cu = \Stripe\Customer::retrieve($customerID);
+								// update customer card to the one just entered
+								$cu->source = $token;
+								$cu->save();
+								update_post_meta( $current_user->ID, 'fingerprint', $token->card->fingerprint );
+							}
+						}
+
+					} else {
+
+						$charge = \Stripe\Charge::create(array(
+							'amount' 	     		=> $amount,
+							'currency' 				=> $this->stripe_storecurrency,
+							'card'					=> $token,
+							'capture'				=> STRIPE_TRANSACTION_MODE,
+							'statement_descriptor'  => 'Order#' . $wc_order->get_order_number(),
+							'metadata' 				=> array(
+								'Order #' 	  		=> $wc_order->get_order_number(),
+								'Total Tax'      	=> $wc_order->get_total_tax(),
+								'Total Shipping' 	=> $wc_order->get_total_shipping(),
+								'WP customer #'  	=> $wc_order->user_id,
+								'Billing Email'  	=> $wc_order->billing_email,
+							),
+							'receipt_email'         => $wc_order->billing_email,
+							'description'  			=> get_bloginfo('blogname') . ' Order #' . $wc_order->get_order_number(),
+							'shipping' 		    	=> array(
+								'address' => array(
+									'line1'			=> $wc_order->shipping_address_1,
+									'line2'			=> $wc_order->shipping_address_2,
+									'city'			=> $wc_order->shipping_city,
+									'state'			=> $wc_order->shipping_state,
+									'country'		=> $wc_order->shipping_country,
+									'postal_code'	=> $wc_order->shipping_postcode
+								),
+								'name' => $wc_order->shipping_first_name . ' ' . $wc_order->shipping_last_name,
+								'phone'=> $wc_order->billing_phone
+							)
 						));
-						// save customer_id for current user meta
-						update_post_meta( $current_user->ID, 'customer_id', $customer->id );
+
 					}
 
 					// if card valid, and if charge paid, add note of payment completion, empty cart, and redirect to order summary - else error notice
 					if ( $token != '' ) {
 
-						// add check here if card entered is different than whats tied to the customer, and if it is - add it or replace current card? then update customer on stripe with new card(s)
+						// if creating a customer, set payment_complete to customerID and allow for filtering, else set to card charge id
+						if ( $this->stripe_create_customer ) {
 
-						// We handle the charge outside the payment gateway in order for charges to happen when we want them to, but we must fake payment_complete passing in the transaction id in order for woocommerce to move along
+							// hookable filter to set status of order before payment is triggered on woocommerce_order_status_processing
+							$ss_wc_process_payment = apply_filters('ss_process_payment', $ss_wc_process, $order_id);
 
-						// when payment is complete, this function is called payment_complete()
-						// Most of the time this should mark an order as 'processing' so that admin can process/post the items
-						// If the cart contains only downloadable items then the order is 'completed' since the admin needs to take no action
-						// Stock levels are reduced at this point
-						// Sales are also recorded for products
-						// Finally, record the date of payment
-						$wc_order->payment_complete($customerID); // originally set to $chargeid
+							// checking against null values if no add_filter used to hook in
+							// process charges immediately if no filter
+							if ( $ss_wc_process_payment || is_null( $ss_wc_process_payment ) ) {
+								$wc_order->payment_complete($customerID);
+							} else {
+								// set to on-hold rather than default pending status
+								$wc_order->update_status('on-hold');
+							}
+
+						} else {
+							$wc_order->payment_complete($charge->id);
+						}
+
 						WC()->cart->empty_cart();
 
 						return array (
@@ -475,103 +560,109 @@ function stripe_init() {
 
 		} // end of class WC_Stripe_Gateway
 
-	} // end of if class exist WC_Gateway
-
-
-
-
-// \Stripe\Stripe::setApiKey("sk_test_2DcoV11I0PQl4ygpFUuuQOMa");
-// // $cu = \Stripe\Customer::retrieve("cus_74ivWhDdtvd0N5");
-// // $cu->description = "test update desc";
-// // $cu->save();
-
-// $cu = \Stripe\Customer::retrieve("cus_74ivWhDdtvd0N5");
-// $card = $cu->sources->retrieve("card_16qZTZDSe6V7KL4aKPyxVbOf");
-// $card->name = "Constantine Kiriaze";
-// $card->save();
-
-
-	add_action('woocommerce_order_status_completed',  'simple_stripe_order_status_completed' );
-	function simple_stripe_order_status_completed( $order_id = null ) {
-		
-		global $woocommerce;
-		global $error;
-		$wc_order = new WC_Order( $order_id );
-		
-		$options = get_option('woocommerce_stripe_settings', array());
-		$data    = get_post_meta( $order_id );
-		$tid     = $data['_transaction_id'][0];
-		$total   = $data['_order_total'][0] * 100;
-		$authcap = $options['stripe_authorize_only'] == 'yes' ? false : true;
-		$s_key   = $options['stripe_sandbox'][0] ? $options['stripe_test_secret_key'] : $options['stripe_live_secret_key'];
-		$params  = array();
-		
-		// if authorize and capture enabled ( default ), capture charges once order is completed
-		\Stripe\Stripe::setApiKey($s_key);
-		try {
-
-			$charge = \Stripe\Charge::create(array(
-				'amount' 	     		=> $total,
-				'currency' 				=> 'USD', // $option['stripe_storecurrency'][0]
-				'customer'				=> $tid, // transaction id is same as customer id meta
-				'capture'				=> $authcap,
-				'statement_descriptor'  => 'Order#' . $wc_order->get_order_number(),
-				'metadata' 				=> array(
-					'Order #' 	  		=> $wc_order->get_order_number(),
-					'Total Tax'      	=> $wc_order->get_total_tax(),
-					'Total Shipping' 	=> $wc_order->get_total_shipping(),
-					'WP customer #'  	=> $wc_order->user_id,
-					'Billing Email'  	=> $wc_order->billing_email,
-				),
-				'receipt_email'         => $wc_order->billing_email,
-				'description'  			=> get_bloginfo('blogname') . ' Order #' . $wc_order->get_order_number(),
-				'shipping' 		    	=> array(
-					'address' => array(
-						'line1'			=> $wc_order->shipping_address_1,
-						'line2'			=> $wc_order->shipping_address_2,
-						'city'			=> $wc_order->shipping_city,
-						'state'			=> $wc_order->shipping_state,
-						'country'		=> $wc_order->shipping_country,
-						'postal_code'	=> $wc_order->shipping_postcode
-					),
-					'name' => $wc_order->shipping_first_name . ' ' . $wc_order->shipping_last_name,
-					'phone'=> $wc_order->billing_phone
-				)
-			));
-
-			if ( $charge->paid == true ) {
-
-				$epoch     = $charge->created;
-				$dt        = new DateTime("@$epoch");
-				$timestamp = $dt->format('Y-m-d H:i:s e');
-				$chargeid  = $charge->id;
-
-				$wc_order->add_order_note(__( 'Stripe payment completed at-'. $timestamp .'-with Charge ID='. $chargeid ,'woocommerce'));
-
-			} else {
-				$wc_order->add_order_note( __( 'Stripe payment failed.'. $error, 'woocommerce' ) );
-				wc_add_notice($error, $notice_type = 'error' );
-			}
-
-		}
-		catch( \Stripe\Error $e ) {
-			// There was an error
-			$body = $e->getJsonBody();
-			$err  = $body['error'];
-		
-			if ( $this->logger )
-			$this->logger->add('striper', 'Stripe Error:' . $err['message']);
-			
-			wc_add_notice(__('Payment error:', 'striper') . $err['message'], 'error');
-			
-			return null;
-		}
-		return true;
-	}
-
+	} // end of if class exist WC_Gateway	
 
 } // stripe_init
 
+
+
+// set outside class/stripe_init since this needs to be accessible outside of woocommerce_payment_gateways
+// if charging when order is set from on-hold/pending to processing instead of completed, then we must set Hold Stock to empty value in wp-admin/admin.php?page=wc-settings&tab=products&section=inventory to prevent the auto cancelation of unpaid orders
+add_action('woocommerce_order_status_processing', 'simple_stripe_order_capture_payment' );
+function simple_stripe_order_capture_payment( $order_id = NULL ) {
+		
+	if ( !class_exists('\Stripe\Stripe') ) {
+		require_once( plugin_dir_path( __FILE__ ) . '/vendor/autoload.php');
+	}
+	
+	global $woocommerce;
+	global $error;
+	$wc_order = new WC_Order( $order_id );
+	
+	$params                            = array();
+	$options                           = get_option('woocommerce_stripe_settings', array());
+	$meta                              = get_post_meta( $order_id );
+	$date                              = array_key_exists('_paid_date', $meta) ? $meta['_paid_date'][0] : '';
+	// $tid                            = $meta['_transaction_id'] ? $meta['_transaction_id'][0] : '';
+	$tid                               = get_post_meta($meta['_customer_user'][0], 'customer_id', true); // using this because order _transaction_id doesnt get set until later thus breaking checkout process
+	$total                             = $meta['_order_total'] ? $meta['_order_total'][0] * 100 : '';
+	$authcap                           = $options['stripe_authorize_only'] == 'yes' ? false : true;
+	
+	$woocommerce_enable_guest_checkout = get_option('woocommerce_enable_guest_checkout') == 'yes' ? true : false;
+	$stripe_create_customer            = !$woocommerce_enable_guest_checkout && $options['stripe_create_customer'] == 'yes' ? true : false;
+	
+	$s_key                             = $options['stripe_sandbox'][0] ? $options['stripe_test_secret_key'] : $options['stripe_live_secret_key'];
+
+	// set api key
+	\Stripe\Stripe::setApiKey($s_key);
+
+	if ( $date || ! $stripe_create_customer ) return; // if order already has a _paid_date or if the create customer option isnt checked, then dont charge them again
+
+	// if authorize and capture enabled ( default ), capture charges once order is completed
+	try {
+
+		$charge = \Stripe\Charge::create(array(
+			'amount' 	     		=> $total,
+			'currency' 				=> 'USD', // $option['stripe_storecurrency'][0]
+			'customer'				=> $tid, // transaction id is the customer id meta
+			'capture'				=> $authcap,
+			'statement_descriptor'  => 'Order#' . $wc_order->get_order_number(),
+			'metadata' 				=> array(
+				'Order #' 	  		=> $wc_order->get_order_number(),
+				'Total Tax'      	=> $wc_order->get_total_tax(),
+				'Total Shipping' 	=> $wc_order->get_total_shipping(),
+				'WP customer #'  	=> $wc_order->user_id,
+				'Billing Email'  	=> $wc_order->billing_email,
+			),
+			'receipt_email'         => $wc_order->billing_email,
+			'description'  			=> get_bloginfo('blogname') . ' Order #' . $wc_order->get_order_number(),
+			'shipping' 		    	=> array(
+				'address' => array(
+					'line1'			=> $wc_order->shipping_address_1,
+					'line2'			=> $wc_order->shipping_address_2,
+					'city'			=> $wc_order->shipping_city,
+					'state'			=> $wc_order->shipping_state,
+					'country'		=> $wc_order->shipping_country,
+					'postal_code'	=> $wc_order->shipping_postcode
+				),
+				'name' => $wc_order->shipping_first_name . ' ' . $wc_order->shipping_last_name,
+				'phone'=> $wc_order->billing_phone
+			)
+		));
+
+		if ( $charge->paid == true ) {
+
+			// $epoch     = $charge->created;
+			// $dt        = new DateTime("@$epoch");
+			// $timestamp = $dt->format('Y-m-d H:i:s e');
+			$timestamp = current_time('mysql');
+			$chargeid  = $charge->id;
+
+			$wc_order->add_order_note(__( 'Stripe payment completed at-'. $timestamp .'-with Charge ID='. $chargeid ,'woocommerce'));
+
+			add_post_meta( $order_id, '_paid_date', $timestamp, true );
+
+		} else {
+			$wc_order->add_order_note( __( 'Stripe payment failed.'. $error, 'woocommerce' ) );
+			wc_add_notice($error, $notice_type = 'error' );
+		}
+
+	} catch( \Stripe\Error $e ) {
+		// There was an error
+		$body = $e->getJsonBody();
+		$err  = $body['error'];
+	
+		if ( $this->logger )
+		$this->logger->add('striper', 'Stripe Error:' . $err['message']);
+		
+		wc_add_notice(__('Payment error:', 'striper') . $err['message'], 'error');
+		
+		return null;
+	}
+	
+	return true;
+
+}
 
 // Activation hook
 add_action( 'plugins_loaded', 'stripe_init' );
