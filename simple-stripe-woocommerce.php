@@ -341,6 +341,19 @@ function stripe_init() {
 				return  WC_HTTPS::force_https_url( plugins_url( 'images/' . $image_type . '.jpg' , __FILE__ ) );
 			}
 
+			// attempting custom payment field markup
+			public function payment_fields() {
+
+				wp_enqueue_script( 'wc-credit-card-form' );
+
+				require_once( plugin_dir_path( __FILE__ ) . '/payment-fields.php');
+
+				// //Output Default WooCommerce 2.1+ cc form
+				// $this->credit_card_form( array(
+				// 	'fields_have_names' => false,
+				// ) );
+			}
+
 			// Process Payment
 			public function process_payment( $order_id ) {
 
@@ -357,13 +370,23 @@ function stripe_init() {
 					$amount = $grand_total * 100;
 				}
 
-				$cardtype = $this->get_card_type(sanitize_text_field( str_replace(' ', '', $_POST['stripe-card-number']) ));
+				$card_number = sanitize_text_field( str_replace(' ', '', $_POST['stripe-card-number']) );
+				$cvc         = sanitize_text_field( $_POST['stripe-card-cvc'] );
+				$expiry      = sanitize_text_field( $_POST['stripe-card-expiry'] );
+				$cardtype    = $card_number ? $this->get_card_type($card_number) : '';
 
 				$current_user = wp_get_current_user();
 				$customerID   = get_post_meta( $current_user->ID, 'customer_id', true );
 
+				if ( ! $card_number || ! $expiry || ! $cvc ) {
+					// add check for which field, and add that to the message
+					wc_add_notice('Please fill out all credit card fields.',  $notice_type = 'error' );
+					return;
+				}
+
 				if ( !in_array( $cardtype, $this->stripe_cardtypes ) ) {
 					wc_add_notice('Merchant does not support accepting in '. $cardtype,  $notice_type = 'error' );
+					// return;
 					return array (
 						'result'   => 'success',
 						'redirect' => WC()->cart->get_checkout_url()
@@ -373,7 +396,7 @@ function stripe_init() {
 
 				try {
 
-					$exp_date         = explode( "/", sanitize_text_field( $_POST['stripe-card-expiry'] ));
+					$exp_date         = explode( "/", $expiry );
 					$exp_month        = str_replace( ' ', '', $exp_date[0]);
 					$exp_year         = str_replace( ' ', '', $exp_date[1]);
 
@@ -384,8 +407,8 @@ function stripe_init() {
 					// create token for customer/buyer credit card
 					$token = \Stripe\Token::create(array(
 						"card" => array(
-							'number' 	     	=> sanitize_text_field( str_replace(' ', '', $_POST['stripe-card-number']) ),
-							'cvc' 				=> sanitize_text_field( $_POST['stripe-card-cvc'] ),
+							'number' 	     	=> $card_number,
+							'cvc' 				=> $cvc,
 							'exp_month' 		=> $exp_month,
 							'exp_year' 			=> $exp_year,
 							'name'  			=> $wc_order->billing_first_name . ' ' . $wc_order->billing_last_name,
@@ -397,7 +420,6 @@ function stripe_init() {
 							'address_country'	=> $wc_order->billing_country
 						)
 					));
-
 
 					// if create customer option is true, then create customer if no $customerID has been set - else, charge the card now
 					if ( $this->stripe_create_customer ) {
