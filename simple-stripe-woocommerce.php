@@ -10,10 +10,15 @@
 */
 
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
+
+define( 'SIMPLE_STRIPE_PLUGIN_URL', plugin_dir_url( __FILE__ ));
+define( 'SIMPLE_STRIPE_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
+define( 'SIMPLE_STRIPE_PLUGIN_BASENAME', plugin_basename( __FILE__ ));
+
 function stripe_init() {
 
 	if ( !class_exists('\Stripe\Stripe') ) {
-		require_once( plugin_dir_path( __FILE__ ) . '/vendor/autoload.php');
+		require_once( SIMPLE_STRIPE_PLUGIN_PATH . '/vendor/autoload.php');
 	}
 
 	function add_stripe_gateway_class( $methods ) {
@@ -346,7 +351,14 @@ function stripe_init() {
 
 				wp_enqueue_script( 'wc-credit-card-form' );
 
-				require_once( plugin_dir_path( __FILE__ ) . '/payment-fields.php');
+				// To allow for authors/themes to overwrite path
+				// template path left empty to override, default path stop at templates/ dir
+				wc_get_template( 'checkout/payment-fields.php', array(
+					'order_button_text' => apply_filters( 'woocommerce_pay_order_button_text', 'Pay Now' )
+				// ), get_stylesheet_directory() . '/woocommerce/checkout/', SIMPLE_STRIPE_PLUGIN_PATH . 'templates/');
+				), '', SIMPLE_STRIPE_PLUGIN_PATH . 'templates/');
+
+				// require_once( SIMPLE_STRIPE_PLUGIN_PATH . '/payment-fields.php');
 
 				// //Output Default WooCommerce 2.1+ cc form
 				// $this->credit_card_form( array(
@@ -427,14 +439,14 @@ function stripe_init() {
 						// check if user already has a customer ID
 						// if they dont, create customer
 						if ( empty( $customerID ) ) {
-							
+
 							// Create a Customer
 							$customer = \Stripe\Customer::create(array(
 								'email'       => $wc_order->billing_email,
 								'source'      => $token,
 								'description' => $current_user->first_name . ' ' . $current_user->last_name
 							));
-							
+
 							// save customer_id for current user meta
 							update_post_meta( $current_user->ID, 'customer_id', $customer->id );
 
@@ -442,7 +454,7 @@ function stripe_init() {
 							update_post_meta( $current_user->ID, 'fingerprint', $token->card->fingerprint );
 
 						} else {
-						
+
 							// add check here if card entered is different than whats tied to the customer, and if it is - add it or replace current card? then update customer on stripe with new card(s)
 
 							// \Stripe\Stripe::setApiKey("sk_test_2DcoV11I0PQl4ygpFUuuQOMa");
@@ -582,7 +594,7 @@ function stripe_init() {
 
 		} // end of class WC_Stripe_Gateway
 
-	} // end of if class exist WC_Gateway	
+	} // end of if class exist WC_Gateway
 
 } // stripe_init
 
@@ -592,15 +604,15 @@ function stripe_init() {
 // if charging when order is set from on-hold/pending to processing instead of completed, then we must set Hold Stock to empty value in wp-admin/admin.php?page=wc-settings&tab=products&section=inventory to prevent the auto cancelation of unpaid orders
 add_action('woocommerce_order_status_processing', 'simple_stripe_order_capture_payment' );
 function simple_stripe_order_capture_payment( $order_id = NULL ) {
-		
+
 	if ( !class_exists('\Stripe\Stripe') ) {
-		require_once( plugin_dir_path( __FILE__ ) . '/vendor/autoload.php');
+		require_once( SIMPLE_STRIPE_PLUGIN_PATH . '/vendor/autoload.php');
 	}
-	
+
 	global $woocommerce;
 	global $error;
 	$wc_order = new WC_Order( $order_id );
-	
+
 	$params                            = array();
 	$options                           = get_option('woocommerce_stripe_settings', array());
 	$meta                              = get_post_meta( $order_id );
@@ -609,10 +621,10 @@ function simple_stripe_order_capture_payment( $order_id = NULL ) {
 	$tid                               = get_post_meta($meta['_customer_user'][0], 'customer_id', true); // using this because order _transaction_id doesnt get set until later thus breaking checkout process
 	$total                             = $meta['_order_total'] ? $meta['_order_total'][0] * 100 : '';
 	$authcap                           = $options['stripe_authorize_only'] == 'yes' ? false : true;
-	
+
 	$woocommerce_enable_guest_checkout = get_option('woocommerce_enable_guest_checkout') == 'yes' ? true : false;
 	$stripe_create_customer            = !$woocommerce_enable_guest_checkout && $options['stripe_create_customer'] == 'yes' ? true : false;
-	
+
 	$s_key                             = $options['stripe_sandbox'][0] ? $options['stripe_test_secret_key'] : $options['stripe_live_secret_key'];
 
 	// set api key
@@ -673,15 +685,15 @@ function simple_stripe_order_capture_payment( $order_id = NULL ) {
 		// There was an error
 		$body = $e->getJsonBody();
 		$err  = $body['error'];
-	
+
 		if ( $this->logger )
 		$this->logger->add('striper', 'Stripe Error:' . $err['message']);
-		
+
 		wc_add_notice(__('Payment error:', 'striper') . $err['message'], 'error');
-		
+
 		return null;
 	}
-	
+
 	return true;
 
 }
